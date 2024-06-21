@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <!DOCTYPE html>
+  <html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Memory Game</title>
+    <style>
+      body {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        background-color: #f3f3f3;
+      }
+
+      #game {
+        display: flex;
+        flex-wrap: wrap;
+        width: 640px;
+        /* / 4 cards 120px width+10px margin on each side */
+        justify-content: space-around;
+      }
+
+      .card {
+        width: 120px;
+        height: 180px;
+        margin: 10px;
+        position: relative;
+        transform-style: preserve-3d;
+        transition: transform 1s;
+        border: 1px solid #ccc;
+      }
+
+
+
+      .card-back,
+      .card-front {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        backface-visibility: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        text-align: center;
+        padding: 10px;
+      }
+
+      .card-front {
+        background-image: url(./images/card_cover.webp);
+        background-size: cover;
+        /* 確保正面沒有文字 */
+        color: transparent;
+      }
+
+      .card-back {
+        background-color: #000000;
+        color: #ffffff;
+        transform: rotateY(180deg);
+      }
+
+      .card:not(.card-close) .card-front {
+        transform: rotateY(-180deg);
+      }
+
+      .card:not(.card-close) .card-back {
+        transform: rotateY(0deg);
+      }
+
+      .card-close .card-front {
+        transform: rotateY(0deg);
+      }
+
+      .card-close .card-back {
+        transform: rotateY(180deg);
+      }
+
+      #timer {
+        display: none;
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.7);
+        padding: 10px;
+        border-radius: 10px;
+        z-index: 999;
+        font-size: 24px;
+        color: black;
+      }
+
+      #overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 2;
+        text-align: center;
+        padding-top: 20%;
+        font-size: 24px;
+        color: white;
+      }
+
+      #start-button {
+        font-size: 20px;
+        color: red;
+        margin: 10px;
+        position: relative;
+        z-index: 999;
+      }
+
+      #quiz-intro {
+        font-size: 24px;
+        text-align: center;
+        margin: 20px;
+      }
+    </style>
+  </head>
+
+<body>
+  <div id="quiz-intro">AI隨堂測驗</div>
+  <button id="start-button">開始</button>
+  <div id="timer">02:00</div>
+  <div id="game"></div>
+  <div id="overlay"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+    integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+    crossorigin="anonymous"></script>
+  <script>
+    let cards = [
+      { pairId: 1, content: 'AI', fullText: 'Artificial Intelligence', description: '人工智能' },
+      { pairId: 1, content: 'Artificial Intelligence', fullText: 'AI', description: '人工智能' },
+      { pairId: 2, content: 'ML', fullText: 'Machine Learning', description: '機器學習' },
+      { pairId: 2, content: 'Machine Learning', fullText: 'ML', description: '機器學習' },
+      { pairId: 3, content: 'NLP', fullText: 'Natural Language Processing', description: '自然語言處理' },
+      { pairId: 3, content: 'Natural Language Processing', fullText: 'NLP', description: '自然語言處理' },
+      { pairId: 4, content: 'CV', fullText: 'Computer Vision', description: '計算機視覺' },
+      { pairId: 4, content: 'Computer Vision', fullText: 'CV', description: '計算機視覺' },
+      { pairId: 5, content: 'ANN', fullText: 'Artificial Neural Network', description: '人工神經網絡' },
+      { pairId: 5, content: 'Artificial Neural Network', fullText: 'ANN', description: '人工神經網絡' },
+      { pairId: 6, content: 'RL', fullText: 'Reinforcement Learning', description: '強化學習' },
+      { pairId: 6, content: 'Reinforcement Learning', fullText: 'RL', description: '強化學習' },
+      { pairId: 7, content: 'GAN', fullText: 'Generative Adversarial Network', description: '生成對抗網絡' },
+      { pairId: 7, content: 'Generative Adversarial Network', fullText: 'GAN', description: '生成對抗網絡' },
+      { pairId: 8, content: 'DL', fullText: 'Deep Learning', description: '深度學習' },
+      { pairId: 8, content: 'Deep Learning', fullText: 'DL', description: '深度學習' }
+      // ... 其他卡片數據
+    ];
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        let j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+    function showOverlay(message, showRetryButton = false) {
+      $('#overlay').html(`
+<div>${message}</div>
+<button id="close-overlay">關閉</button>
+${showRetryButton ? '<button id="retry-button">再測驗一次</button>' : ''}
+`).fadeIn(500);
+      $('#close-overlay').click(function () {
+        $('#overlay').fadeOut(500);
+        location.reload();
+      });
+      if (showRetryButton) {
+        $('#retry-button').click(function () {
+          location.reload();
+        });
+      }
+    }
+
+    let interval; // 定義一個全局變量來存儲計時器的 ID
+    $(document).ready(function () {
+      $('#start-button').click(startGame);
+      $('#game').on('click', '.card', function () {
+        // 如果已經有兩張牌被翻開，則不允許翻開更多的牌
+        if ($('.card:not(.card-close)').length === 2) {
+          return;
+        }
+
+        $(this).toggleClass('card-close');
+        // 檢查是否有兩張牌被翻開
+        let openCards = $('.card:not(.card-close)');
+        if (openCards.length === 2) {
+          // 檢查是否匹配
+          let firstCard = cards[openCards.first().data('number')];
+          let secondCard = cards[openCards.last().data('number')];
+          if (firstCard.pairId === secondCard.pairId) {
+            // 如果匹配，則將這兩張牌標記為已匹配並在一秒後移除
+            setTimeout(function () {
+              openCards.each(function () {
+                $(this).addClass('card-ok').fadeOut(500, function () {
+                  $(this).remove();
+                  // 在卡片移除後呼叫檢查遊戲結束的函數
+                  checkAllCardsMatched();
+                });
+              });
+            }, 1000);
+          } else {
+            // 如果不匹配，則在一秒後將它們翻回正面
+            setTimeout(function () {
+              openCards.addClass('card-close');
+            }, 1000);
+          }
+        }
+      });
+
+      function checkAllCardsMatched() {
+        // 檢查是否所有牌都已匹配
+        if ($('.card').length === 0) {
+          showOverlay('您真內行！隨堂測驗結束');
+          clearInterval(interval); // 停止計時器
+        }
+      }
+      // 在卡片匹配檢查後呼叫檢查遊戲結束的函數
+      checkAllCardsMatched();
+    });
+
+
+
+    // 打亂卡片並添加到遊戲區域
+    shuffle(cards).forEach(function (card, index) {
+      $('#game').append(`
+<div class="card card-close" data-number="${index}" data-pair-id="${card.pairId}">
+<div class="card-front"></div> <!-- 正面不顯示文字 -->
+<div class="card-back">${index % 2 === 0 ? card.content : card.fullText + '<br>' + card.description}</div>
+</div>
+`);
+    });
+
+    function startGame() {
+      $('#quiz-intro, #start-button').hide();
+      $('#timer, #game').show();
+      let timer = 120; // 2分鐘Ｆ
+      let interval = setInterval(function () {
+        let minutes = Math.floor(timer / 60);
+        let seconds = timer % 60;
+        $('#timer').text(minutes.toString().padStart(2, '0') + ':' + seconds.toString().padStart(2, '0'));
+        if (timer <= 0) {
+          showOverlay('時間到，您欠栽培', true);
+          clearInterval(interval);
+        } else {
+          timer--;
+        }
+      }, 1000);
+    }
+
+
+
+
+
+
+  </script>
+
+
+</body>
+
+</html>
